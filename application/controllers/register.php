@@ -15,6 +15,7 @@ class register extends CI_Controller
         $this->response['csrfName'] = $this->security->get_csrf_token_name();
         $this->response['csrfHash'] = $this->security->get_csrf_hash();
     }
+
     public function index()
     {
         if (!$this->ion_auth->logged_in() == 1) {
