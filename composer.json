@@ -1,0 +1,12 @@
+{
+    "name": "asus/pjs-ecommerce",
+    "authors": [
+        {
+            "name": "otnasusdwi",
+            "email": "otnasusdwi@gmail.com"
+        }
+    ],
+    "require": {
+        "xendit/xendit-php": "^4.3"
+    }
+}

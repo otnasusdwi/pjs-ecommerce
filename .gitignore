@@ -6,3 +6,4 @@ assets/front_end/modern/images/*
 /.vscode/
 /dist/
 /node_modules/
+/vendor/

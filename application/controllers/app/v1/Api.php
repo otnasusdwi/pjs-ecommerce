@@ -1,6 +1,11 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
+use Xendit\Configuration;
+use Xendit\Invoice\CreateInvoiceRequest;
+use Xendit\Invoice\InvoiceApi;
+use Xendit\XenditSdkException;
+
 class Api extends CI_Controller
 {
 
@@ -6754,7 +6759,7 @@ class Api extends CI_Controller
 
     public function send_otp()
     {
-        $no_hp = $_POST['no_hp'];
+        $no_hp = $this->input->post('no_hp');
         // URL to which the POST request will be sent
         $url = 'https://otp.hepta.co.id/api/naavagreen/login';
 
@@ -6779,27 +6784,34 @@ class Api extends CI_Controller
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
         // Execute cURL request
-        $response = curl_exec($ch);
+        $res = curl_exec($ch);
 
         // Check for errors
-        if ($response === false) {
+        if ($res === false) {
             // cURL error occurred
             $errorMessage = curl_error($ch);
-            echo 'cURL error: ' . $errorMessage;
+            $dataResponse = json_decode($res);
+            $this->response['error'] = false;
+            $this->response['message'] = $errorMessage;
+
         } else {
             // Request was successful, handle response data
-            echo 'Response: ' . $response;
+            $dataResponse = json_decode($res);
+            $this->response['error'] = false;
+            $this->response['message'] = $dataResponse->message;
         }
 
         // Close cURL session
         curl_close($ch);
+        print_r(json_encode($this->response));
+        return;
 
     }
 
     public function verify_otp()
     {
-        $no_hp = $_POST['no_hp'];
-        $otp = $_POST['otp'];
+        $no_hp = $this->input->post('no_hp');
+        $otp = $this->input->post('otp');
 
         // URL to which the POST request will be sent
         $url = 'https://otp.hepta.co.id/api/naavagreen/verif_otp';
@@ -6826,20 +6838,98 @@ class Api extends CI_Controller
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
         // Execute cURL request
-        $response = curl_exec($ch);
+        $res = curl_exec($ch);
 
         // Check for errors
-        if ($response === false) {
+        if ($res === false) {
             // cURL error occurred
             $errorMessage = curl_error($ch);
-            echo 'cURL error: ' . $errorMessage;
+            $dataResponse = json_decode($res);
+            $this->response['error'] = false;
+            $this->response['message'] = $errorMessage;
+
         } else {
             // Request was successful, handle response data
-            echo 'Response: ' . $response;
+            $dataResponse = json_decode($res);
+            $this->response['error'] = false;
+            $this->response['message'] = $dataResponse->message;
         }
 
         // Close cURL session
         curl_close($ch);
 
+        print_r(json_encode($this->response));
+        return;
+
+    }
+
+    public function generate_invoice_xendit()
+    {
+        $urlInvoice = null;
+        $xenditSecretKey = $this->config->item('xendit_secret_key');
+        Configuration::setXenditKey($xenditSecretKey);
+
+        $apiInstance = new InvoiceApi();
+        $create_invoice_request = new CreateInvoiceRequest([
+            'external_id' => $this->input->post('order_id'),
+            'description' => "Generate Invoice Xendit " . $this->input->post('order_id'),
+            'amount' => $this->input->post('amount'),
+            'currency' => 'IDR',
+            'success_redirect_url' => 'https://google.com',
+            // 'invoice_duration' => 172800, #2 hari
+            'invoice_duration' => 21600, #6 jam
+            // 'reminder_time' => 1,
+        ]);
+
+        try {
+            $res = $apiInstance->createInvoice($create_invoice_request);
+            $result = json_decode($res, true);
+
+            if ($result) {
+                $this->response['error'] = false;
+                $this->response['message'] = 'Generate invoice url xendit successfully';
+                $this->response['invoice_url'] = $result['invoice_url'];
+            } else {
+                $this->response['error'] = true;
+                $this->response['message'] = 'Generate invoice url xendit error';
+                $this->response['invoice_url'] = null;
+            }
+
+            // $urlInvoice = $result['invoice_url'];
+        } catch (XenditSdkException $e) {
+            $this->response['error'] = true;
+            $this->response['message'] = $e->getMessage();
+            $this->response['invoice_url'] = [];
+
+        }
+        print_r(json_encode($this->response));
+        return;
+
+    }
+
+    public function callback_invoice_xendit()
+    {
+        $order_id = $this->post->input('external_id');
+
+        if ($this->post->input('status') == 'PAID') {
+            try {
+                $data = [
+                    'order_status' => 'Paid',
+                ];
+
+                $this->db->where('id', $order_id);
+                $this->db->update('orders', $data);
+
+                $this->response['error'] = false;
+                $this->response['message'] = 'Callback Order ' . $order_id . ' successfully';
+
+            } catch (\Exception $e) {
+                $this->response['error'] = true;
+                $this->response['message'] = $e->getMessage();
+
+            }
+            print_r(json_encode($this->response));
+            return;
+        }
     }
 }
